@@ -1,7 +1,6 @@
 <?php
 session_start();
 require_once __DIR__ . '/../app/db.php';
-require_once __DIR__ . '/../app/heic_converter.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login.php");
@@ -23,40 +22,23 @@ if (isset($_POST['add'])) {
     $stmt->execute([$category_id, $name, $price]);
     $product_id = $pdo->lastInsertId();
 
-    // Handle multiple image uploads dengan HEIC support
+    // Handle multiple image uploads
     if (!empty($_FILES['images']['name'][0])) {
         foreach ($_FILES['images']['name'] as $key => $filename) {
             if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK && !empty($filename)) {
                 $sort_order = $_POST['sort_order'][$key] ?? $key;
 
-                $file = [
-                    'name' => $_FILES['images']['name'][$key],
-                    'type' => $_FILES['images']['type'][$key],
-                    'tmp_name' => $_FILES['images']['tmp_name'][$key],
-                    'error' => $_FILES['images']['error'][$key],
-                    'size' => $_FILES['images']['size'][$key]
-                ];
+                $ext = strtolower(pathinfo($_FILES['images']['name'][$key], PATHINFO_EXTENSION));
+                $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                if (!in_array($ext, $allowed)) continue;
 
-                // Validasi file
-                $validation = validateImageUpload($file);
-                if (!$validation['valid']) {
-                    continue;
-                }
+                $image = 'product_' . $product_id . '_' . time() . '_' . uniqid() . '.' . $ext;
+                $targetDir = __DIR__ . '/../uploads/products/';
+                if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
 
-                // Process upload dengan auto HEIC to PNG
-                $result = processImageUpload($file, "../uploads/products/", 'product_' . $product_id);
-
-                // DEBUG SEMENTARA - hapus setelah fix
-                file_put_contents(__DIR__ . '/debug_upload.txt', print_r([
-                    'file' => $file,
-                    'result' => $result,
-                    'target_dir' => realpath("../uploads/products/"),
-                    'tmp_exists' => file_exists($file['tmp_name']),
-                ], true));
-
-                if ($result['success']) {
+                if (move_uploaded_file($_FILES['images']['tmp_name'][$key], $targetDir . $image)) {
                     $img_stmt = $pdo->prepare("INSERT INTO product_images (product_id, image_path, sort_order) VALUES (?, ?, ?)");
-                    $img_stmt->execute([$product_id, $result['filename'], $sort_order]);
+                    $img_stmt->execute([$product_id, $image, $sort_order]);
                 }
             }
         }
@@ -95,32 +77,23 @@ if (isset($_POST['update'])) {
     ");
     $stmt->execute([$category_id, $name, $price, $id]);
 
-    // Handle additional image uploads dengan HEIC support
+    // Handle additional image uploads
     if (!empty($_FILES['images']['name'][0])) {
         foreach ($_FILES['images']['name'] as $key => $filename) {
             if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK && !empty($filename)) {
                 $sort_order = $_POST['sort_order'][$key] ?? 999;
 
-                $file = [
-                    'name' => $_FILES['images']['name'][$key],
-                    'type' => $_FILES['images']['type'][$key],
-                    'tmp_name' => $_FILES['images']['tmp_name'][$key],
-                    'error' => $_FILES['images']['error'][$key],
-                    'size' => $_FILES['images']['size'][$key]
-                ];
+                $ext = strtolower(pathinfo($_FILES['images']['name'][$key], PATHINFO_EXTENSION));
+                $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                if (!in_array($ext, $allowed)) continue;
 
-                // Validasi file
-                $validation = validateImageUpload($file);
-                if (!$validation['valid']) {
-                    continue;
-                }
+                $image = 'product_' . $id . '_' . time() . '_' . uniqid() . '.' . $ext;
+                $targetDir = __DIR__ . '/../uploads/products/';
+                if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
 
-                // Process upload dengan auto HEIC to PNG
-                $result = processImageUpload($file, "../uploads/products/", 'product_' . $id);
-
-                if ($result['success']) {
+                if (move_uploaded_file($_FILES['images']['tmp_name'][$key], $targetDir . $image)) {
                     $img_stmt = $pdo->prepare("INSERT INTO product_images (product_id, image_path, sort_order) VALUES (?, ?, ?)");
-                    $img_stmt->execute([$id, $result['filename'], $sort_order]);
+                    $img_stmt->execute([$id, $image, $sort_order]);
                 }
             }
         }

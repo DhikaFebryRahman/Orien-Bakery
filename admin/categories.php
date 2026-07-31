@@ -1,7 +1,6 @@
 <?php
 session_start();
 require_once __DIR__ . '/../app/db.php';
-require_once __DIR__ . '/../app/heic_converter.php';
 
 /* ======================
    PROTEKSI LOGIN
@@ -19,27 +18,18 @@ if (isset($_POST['add'])) {
 
     $image = '';
     if (!empty($_FILES['image']['name'])) {
-        $file = [
-            'name' => $_FILES['image']['name'],
-            'type' => $_FILES['image']['type'],
-            'tmp_name' => $_FILES['image']['tmp_name'],
-            'error' => $_FILES['image']['error'],
-            'size' => $_FILES['image']['size']
-        ];
-
-        // Validasi file
-        $validation = validateImageUpload($file);
-        if (!$validation['valid']) {
-            die('❌ ' . $validation['message']);
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (!in_array($ext, $allowed)) {
+            die('❌ Tipe file tidak diizinkan.');
         }
 
-        // Process upload dengan auto HEIC to PNG
-        $result = processImageUpload($file, __DIR__ . '/../uploads/categories/', 'category');
+        $image = 'category_' . time() . '_' . uniqid() . '.' . $ext;
+        $targetDir = __DIR__ . '/../uploads/categories/';
+        if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
 
-        if ($result['success']) {
-            $image = $result['filename'];
-        } else {
-            die('❌ Upload gambar gagal: ' . $result['message']);
+        if (!move_uploaded_file($_FILES['image']['tmp_name'], $targetDir . $image)) {
+            die('❌ Upload gambar gagal');
         }
     }
 
@@ -65,27 +55,20 @@ if (isset($_POST['update'])) {
     $image = $old_image;
 
     if (!empty($_FILES['image']['name'])) {
-        $file = [
-            'name' => $_FILES['image']['name'],
-            'type' => $_FILES['image']['type'],
-            'tmp_name' => $_FILES['image']['tmp_name'],
-            'error' => $_FILES['image']['error'],
-            'size' => $_FILES['image']['size']
-        ];
-
-        // Validasi file
-        $validation = validateImageUpload($file);
-        if (!$validation['valid']) {
-            die('❌ ' . $validation['message']);
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (!in_array($ext, $allowed)) {
+            die('❌ Tipe file tidak diizinkan.');
         }
 
-        // Process upload dengan auto HEIC to PNG
-        $result = processImageUpload($file, __DIR__ . '/../uploads/categories/', 'category_' . $id);
+        $newImage = 'category_' . $id . '_' . time() . '_' . uniqid() . '.' . $ext;
+        $targetDir = __DIR__ . '/../uploads/categories/';
+        if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
 
-        if ($result['success']) {
-            $image = $result['filename'];
+        if (!move_uploaded_file($_FILES['image']['tmp_name'], $targetDir . $newImage)) {
+            die('❌ Upload gambar gagal');
         } else {
-            die('❌ Upload gambar gagal: ' . $result['message']);
+            $image = $newImage;
         }
     }
 
